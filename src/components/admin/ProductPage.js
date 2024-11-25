@@ -8,78 +8,125 @@ import SaveIcon from "@mui/icons-material/Save";
 import CancelIcon from "@mui/icons-material/Close";
 import ProductionQuantityLimitsIcon from "@mui/icons-material/ProductionQuantityLimits";
 import {
-  GridRowModes,
+  GridActionsCellItem,
   DataGrid,
   GridToolbarContainer,
-  GridActionsCellItem,
-  GridRowEditStopReasons,
 } from "@mui/x-data-grid";
+import axios from "axios";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
+import TextField from "@mui/material/TextField";
 
-// Données des produits avec IDs fixes
-const initialProducts = [
-  {
-    id: 1,
-    name: "Produit A",
-    category: "Catégorie 1",
-    price: 50,
-    stock: 200,
-    supplier: "Fournisseur A",
-  },
-  {
-    id: 2,
-    name: "Produit B",
-    category: "Catégorie 2",
-    price: 30,
-    stock: 150,
-    supplier: "Fournisseur B",
-  },
-  {
-    id: 3,
-    name: "Produit C",
-    category: "Catégorie 3",
-    price: 70,
-    stock: 100,
-    supplier: "Fournisseur C",
-  },
-  {
-    id: 4,
-    name: "Produit D",
-    category: "Catégorie 1",
-    price: 40,
-    stock: 250,
-    supplier: "Fournisseur A",
-  },
-  {
-    id: 5,
-    name: "Produit E",
-    category: "Catégorie 2",
-    price: 60,
-    stock: 300,
-    supplier: "Fournisseur B",
-  },
-];
+// Fonction pour récupérer les produits depuis le backend
+const fetchProducts = async () => {
+  try {
+    const token = localStorage.getItem("jwtToken");
+    if (!token) {
+      alert("Please log in first");
+      return;
+    }
+    const response = await axios.get('http://localhost:8080/api/products', {
+      headers: {
+          Authorization: `Bearer ${token}`, // Ajoutez le token JWT ici
+          'Content-Type': 'application/json',
+      },
+      withCredentials: true, // Nécessaire si "allowCredentials" est activé
+  });
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching products:", error);
+    return [];
+  }
+};
 
+// Fonction pour ajouter un produit
+const createProduct = async (product, imageFile) => {
+  const token = localStorage.getItem("jwtToken");
+  if (!token) {
+    alert("Please log in first");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("name", product.name);
+  formData.append("price", product.price);
+  formData.append("expirationDate", product.expirationDate);
+  if (imageFile) {
+    formData.append("image", imageFile);
+  }
+
+  try {
+    await axios.post("http://localhost:8080/api/products", formData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    alert("Product created successfully!");
+  } catch (error) {
+    console.error("Error creating product:", error.response ? error.response.data : error.message);
+  }
+};
+
+// Fonction pour supprimer un produit
+const deleteProduct = async (id) => {
+  const token = localStorage.getItem("jwtToken");
+  if (!token) {
+    alert("Please log in first");
+    return;
+  }
+
+  try {
+    await axios.delete(`http://localhost:8080/api/products/${id}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    alert("Product deleted successfully!");
+  } catch (error) {
+    console.error("Error deleting product:", error.response ? error.response.data : error.message);
+  }
+};
+
+// Fonction pour mettre à jour un produit
+const updateProduct = async (id, product, imageFile) => {
+  const token = localStorage.getItem("jwtToken");
+  if (!token) {
+    alert("Please log in first");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("name", product.name);
+  formData.append("price", product.price);
+  formData.append("expirationDate", product.expirationDate);
+  if (imageFile) {
+    formData.append("image", imageFile);
+  }
+
+  try {
+    await axios.put(`http://localhost:8080/api/products/${id}`, formData, {
+      headers: {
+        Authorization: `Bearer ${token}`, // Le token doit être valide
+        "Content-Type": "multipart/form-data", // Correct pour l'envoi d'un FormData
+      },
+    });
+    
+    
+    alert("Product updated successfully!");
+  } catch (error) {
+    console.error("Error updating product:", error.response ? error.response.data : error.message);
+  }
+};
+
+// Fonction de la barre d'outils pour ajouter un produit
 function EditToolbar(props) {
-  const { setRows, setRowModesModel, rows } = props;
+  const { openAddDialog, setOpenAddDialog } = props;
 
   const handleClick = () => {
-    const id = Math.max(...rows.map((row) => row.id)) + 1; // Générer un nouvel ID basé sur les IDs existants
-    setRows((oldRows) => [
-      ...oldRows,
-      {
-        id,
-        name: "",
-        category: "",
-        price: "",
-        stock: "",
-        supplier: "",
-        isNew: true,
-      },
-    ]);
-    setRowModesModel((oldModel) => ({
-      ...oldModel,
-      [id]: { mode: GridRowModes.Edit, fieldToFocus: "name" },
-    }));
+    setOpenAddDialog(true); // Open the add product dialog
   };
 
   return (
@@ -92,56 +139,89 @@ function EditToolbar(props) {
 }
 
 export function ProductPage() {
-  const [products, setRows] = React.useState(initialProducts);
-  const [rowModesModel, setRowModesModel] = React.useState({});
+  const [products, setRows] = React.useState([]); // Initializing as empty array
+  const [openAddDialog, setOpenAddDialog] = React.useState(false); // Manage add product dialog state
+  const [openEditDialog, setOpenEditDialog] = React.useState(false); // Manage edit product dialog state
+  const [newProduct, setNewProduct] = React.useState({
+    name: "",
+    price: "",
+    expirationDate: "",
+  });
+  const [editingProduct, setEditingProduct] = React.useState(null);
+  const [imageFile, setImageFile] = React.useState(null); // State to store selected image file for new product
 
-  const handleRowEditStop = (params, event) => {
-    if (params.reason === GridRowEditStopReasons.rowFocusOut) {
-      event.defaultMuiPrevented = true;
-    }
+  // Fetch products when the component mounts
+  React.useEffect(() => {
+    const loadProducts = async () => {
+      const productsFromBackend = await fetchProducts();
+      setRows(productsFromBackend); // Set the products state with fetched data
+    };
+
+    loadProducts();
+  }, []); // Empty dependency array means this runs once after the initial render
+
+  // Add Product
+  const handleAddProduct = async () => {
+    await createProduct(newProduct, imageFile); // Pass imageFile to createProduct function
+    const updatedProducts = await fetchProducts();
+    setRows(updatedProducts);
+    setOpenAddDialog(false);
+    setNewProduct({ name: "", price: "", expirationDate: "" });
+    setImageFile(null); // Reset imageFile after adding product
   };
 
-  const handleEditClick = (id) => () => {
-    setRowModesModel({ ...rowModesModel, [id]: { mode: GridRowModes.Edit } });
+  // Edit Product Logic
+  const handleEditClick = (id) => async () => {
+    const productToEdit = products.find((product) => product.id === id);
+    setEditingProduct(productToEdit);
+    setOpenEditDialog(true); // Open dialog to edit product
   };
 
-  const handleSaveClick = (id) => () => {
-    setRowModesModel({ ...rowModesModel, [id]: { mode: GridRowModes.View } });
+  // Update Product Logic
+  const handleUpdateProduct = async () => {
+    if (!editingProduct) return;
+    await updateProduct(editingProduct.id, editingProduct, imageFile);
+    const updatedProducts = await fetchProducts();
+    setRows(updatedProducts);
+    setOpenEditDialog(false);
   };
 
-  const handleDeleteClick = (id) => () => {
-    setRows(products.filter((product) => product.id !== id));
+  // Handle Product Deletion
+  const handleDeleteClick = (id) => async () => {
+    await deleteProduct(id);
+    const updatedProducts = await fetchProducts();
+    setRows(updatedProducts);
   };
 
-  const handleCancelClick = (id) => () => {
-    setRowModesModel({
-      ...rowModesModel,
-      [id]: { mode: GridRowModes.View, ignoreModifications: true },
+  // Handle form field changes for add product
+  const handleNewProductChange = (event) => {
+    const { name, value } = event.target;
+    setNewProduct({
+      ...newProduct,
+      [name]: value,
     });
+  };
 
-    const editedProduct = products.find((product) => product.id === id);
-    if (editedProduct.isNew) {
-      setRows(products.filter((product) => product.id !== id));
+  // Handle form field changes for edit product
+  const handleEditProductChange = (event) => {
+    const { name, value } = event.target;
+    setEditingProduct((prevProduct) => ({
+      ...prevProduct,
+      [name]: value,
+    }));
+  };
+
+  // Handle image file selection for new product
+  const handleImageChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setImageFile(file);
     }
   };
 
-  const processRowUpdate = (newRow) => {
-    const updatedRow = { ...newRow, isNew: false };
-    setRows(
-      products.map((product) =>
-        product.id === newRow.id ? updatedRow : product
-      )
-    );
-    return updatedRow;
-  };
-
-  const handleRowModesModelChange = (newRowModesModel) => {
-    setRowModesModel(newRowModesModel);
-  };
-
+  // Columns configuration for DataGrid
   const columns = [
     { field: "name", headerName: "Nom du produit", width: 200, editable: true },
-    { field: "category", headerName: "Catégorie", width: 150, editable: true },
     {
       field: "price",
       headerName: "Prix",
@@ -150,16 +230,9 @@ export function ProductPage() {
       editable: true,
     },
     {
-      field: "stock",
-      headerName: "Stock",
-      type: "number",
+      field: "expirationDate",
+      headerName: "Expiration Date",
       width: 100,
-      editable: true,
-    },
-    {
-      field: "supplier",
-      headerName: "Fournisseur",
-      width: 150,
       editable: true,
     },
     {
@@ -168,40 +241,18 @@ export function ProductPage() {
       headerName: "Actions",
       width: 150,
       getActions: ({ id }) => {
-        const isInEditMode = rowModesModel[id]?.mode === GridRowModes.Edit;
-
-        if (isInEditMode) {
-          return [
-            <GridActionsCellItem
-              icon={<SaveIcon />}
-              label="Save"
-              sx={{
-                color: "primary.main",
-              }}
-              onClick={handleSaveClick(id)}
-            />,
-            <GridActionsCellItem
-              icon={<CancelIcon />}
-              label="Cancel"
-              className="textPrimary"
-              onClick={handleCancelClick(id)}
-              color="inherit"
-            />,
-          ];
-        }
-
         return [
           <GridActionsCellItem
             icon={<EditIcon />}
             label="Edit"
             className="textPrimary"
-            onClick={handleEditClick(id)}
+            onClick={handleEditClick(id)} // Trigger editing mode
             color="inherit"
           />,
           <GridActionsCellItem
             icon={<DeleteIcon />}
             label="Delete"
-            onClick={handleDeleteClick(id)}
+            onClick={handleDeleteClick(id)} // Trigger delete
             color="inherit"
           />,
         ];
@@ -211,7 +262,6 @@ export function ProductPage() {
 
   return (
     <Box sx={{ margin: 3 }}>
-      {/* Titre avec icône */}
       <Box sx={{ display: "flex", alignItems: "center", marginBottom: 2 }}>
         <ProductionQuantityLimitsIcon sx={{ marginRight: 1 }} />
         <h2>Product Management</h2>
@@ -232,19 +282,109 @@ export function ProductPage() {
         <DataGrid
           rows={products}
           columns={columns}
-          editMode="row"
-          rowModesModel={rowModesModel}
-          onRowModesModelChange={handleRowModesModelChange}
-          onRowEditStop={handleRowEditStop}
-          processRowUpdate={processRowUpdate}
           slots={{
             toolbar: EditToolbar,
           }}
           slotProps={{
-            toolbar: { setRows, setRowModesModel, rows: products },
+            toolbar: { openAddDialog, setOpenAddDialog },
           }}
         />
       </Box>
+
+      {/* Dialog for adding a product */}
+      <Dialog open={openAddDialog} onClose={() => setOpenAddDialog(false)}>
+        <DialogTitle>Add New Product</DialogTitle>
+        <DialogContent>
+          <TextField
+            label="Product Name"
+            name="name"
+            value={newProduct.name}
+            onChange={handleNewProductChange}
+            fullWidth
+            margin="normal"
+          />
+          <TextField
+            label="Price"
+            name="price"
+            value={newProduct.price}
+            onChange={handleNewProductChange}
+            type="number"
+            fullWidth
+            margin="normal"
+          />
+          <TextField
+            label="Expiration Date"
+            name="expirationDate"
+            value={newProduct.expirationDate}
+            onChange={handleNewProductChange}
+            type="date"
+            fullWidth
+            margin="normal"
+          />
+          {/* New field to upload image */}
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleImageChange}
+            fullWidth
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenAddDialog(false)} startIcon={<CancelIcon />}>
+            Cancel
+          </Button>
+          <Button onClick={handleAddProduct} startIcon={<SaveIcon />}>
+            Add Product
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog for editing a product */}
+      <Dialog open={openEditDialog} onClose={() => setOpenEditDialog(false)}>
+        <DialogTitle>Edit Product</DialogTitle>
+        <DialogContent>
+          <TextField
+            label="Product Name"
+            name="name"
+            value={editingProduct?.name || ""}
+            onChange={handleEditProductChange}
+            fullWidth
+            margin="normal"
+          />
+          <TextField
+            label="Price"
+            name="price"
+            value={editingProduct?.price || ""}
+            onChange={handleEditProductChange}
+            type="number"
+            fullWidth
+            margin="normal"
+          />
+          <TextField
+            label="Expiration Date"
+            name="expirationDate"
+            value={editingProduct?.expirationDate || ""}
+            onChange={handleEditProductChange}
+            type="date"
+            fullWidth
+            margin="normal"
+          />
+          {/* Option to upload new image for editing */}
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleImageChange}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenEditDialog(false)} startIcon={<CancelIcon />}>
+            Cancel
+          </Button>
+          <Button onClick={handleUpdateProduct} startIcon={<SaveIcon />}>
+            Save Changes
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

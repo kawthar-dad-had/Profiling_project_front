@@ -1,4 +1,5 @@
 import * as React from "react";
+import axios from "axios";
 import {
   Button,
   FormControl,
@@ -18,9 +19,6 @@ import { useTheme } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom"; // Importez useNavigate
 
 const providers = [{ id: "credentials", name: "Email and Password" }];
-
-// Email de l'administrateur
-const ADMIN_EMAIL = "admin@mail.dz";
 
 function CustomEmailField() {
   return (
@@ -120,16 +118,30 @@ export default function LoginPage() {
     const email = formData.get("email");
     const password = formData.get("password");
 
-    // Vérification des identifiants
-    if (email === ADMIN_EMAIL) {
-      // Si l'email est celui de l'administrateur
-      alert(`Bienvenue, administrateur !`);
-      navigate("/dashboard"); // Redirection vers la route de l'administrateur
-    } else {
-      // Sinon, utilisateur classique
-      alert(`Bienvenue, utilisateur !`);
-      navigate("/user"); // Redirection vers la route utilisateur
-    }
+    // Utilisation d'Axios pour appeler l'API backend
+    axios
+      .post("http://localhost:8080/api/auth/login", { email, password }) // Remplacez par l'URL correcte de votre API
+      .then((response) => {
+        const token = response.data.token;
+        if (token) {
+          console.log(token)
+          // Sauvegarder le token dans le localStorage ou un autre stockage sécurisé
+          localStorage.setItem("jwtToken", token);
+
+          // Vérification de l'email pour rediriger vers le bon tableau de bord
+          if (email === "ayoub@gmail.com") {
+            alert(`Bienvenue, administrateur !`);
+            navigate("/dashboard"); // Redirection vers la route administrateur
+          } else {
+            alert(`Bienvenue, utilisateur !`);
+            navigate("/user"); // Redirection vers la route utilisateur
+          }
+        }
+      })
+      .catch((error) => {
+        console.error("Erreur de connexion : ", error);
+        alert("Identifiants incorrects.");
+      });
   };
 
   return (

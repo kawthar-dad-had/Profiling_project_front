@@ -11,22 +11,23 @@ import {
 } from "@mui/material";
 import axios from "axios";
 import SearchInput from "../utils/Search";
-import { CircularIndeterminate } from "../utils/CircularIndeterminate"; // Importez le composant de chargement
-import { useCart } from "./CartProvider"; // Importez le hook pour accéder au panier
+import { CircularIndeterminate } from "../utils/CircularIndeterminate"; // Composant de chargement
+import { useCart } from "./CartProvider"; // Hook pour gérer le panier
 
 export function Product() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredProducts, setFilteredProducts] = useState([]);
+  const [imageUrls, setImageUrls] = useState({}); // Pour stocker les URLs des images
 
-  const { addToCart } = useCart(); // Utilisez le hook pour ajouter au panier
+  const { addToCart } = useCart(); // Hook pour ajouter au panier
 
   useEffect(() => {
     axios
-      .get("https://fakestoreapi.com/products")
+      .get("http://localhost:8080/api/products") // Appel à votre backend
       .then((response) => {
-        setProducts(response.data);
+        setProducts(response.data); // Assurez-vous que vos données ont le bon format
         setLoading(false);
       })
       .catch((error) => {
@@ -39,7 +40,7 @@ export function Product() {
     if (searchTerm) {
       setFilteredProducts(
         products.filter((product) =>
-          product.title.toLowerCase().includes(searchTerm.toLowerCase())
+          product.name.toLowerCase().includes(searchTerm.toLowerCase())
         )
       );
     } else {
@@ -47,7 +48,32 @@ export function Product() {
     }
   }, [searchTerm, products]);
 
-  // Affiche le composant de chargement tant que les produits sont en cours de récupération
+  // Récupérer l'image via Axios et créer un objet URL pour l'image
+  const fetchImage = async (productId) => {
+    try {
+      const response = await axios.get(
+        `http://localhost:8080/api/products/${productId}/image`,
+        {
+          responseType: "blob", // Important : on s'attend à recevoir un Blob
+        }
+      );
+      // Créer une URL temporaire pour l'image
+      const imageUrl = URL.createObjectURL(response.data);
+      setImageUrls((prevUrls) => ({
+        ...prevUrls,
+        [productId]: imageUrl,
+      }));
+    } catch (error) {
+      console.error("Erreur lors du chargement de l'image:", error);
+    }
+  };
+
+  useEffect(() => {
+    products.forEach((product) => {
+      fetchImage(product.id); // Appel pour chaque produit
+    });
+  }, [products]);
+
   if (loading) {
     return <CircularIndeterminate />;
   }
@@ -63,15 +89,15 @@ export function Product() {
                 <CardMedia
                   component="img"
                   height="140"
-                  image={product.image}
-                  alt={product.title}
+                  image={imageUrls[product.id] || "path_to_default_image.jpg"} // Image ou fallback
+                  alt={product.name}
                 />
                 <CardContent>
                   <Typography gutterBottom variant="h5" component="div">
-                    {product.title}
+                    {product.name}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {product.description}
+                    Expiration: {product.expirationDate}
                   </Typography>
                   <Typography variant="h6" color="text.primary" sx={{ mt: 2 }}>
                     ${product.price}
@@ -82,7 +108,7 @@ export function Product() {
                 <Button
                   size="small"
                   color="primary"
-                  onClick={() => addToCart(product)} // Ajoutez le produit au panier
+                  onClick={() => addToCart(product)} // Ajout au panier
                 >
                   Add to Cart
                 </Button>

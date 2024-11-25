@@ -1,5 +1,5 @@
-import React from "react";
-import { useCart } from "./CartProvider"; // Utilisez le hook pour accéder au panier
+import React, { useEffect, useState } from "react";
+import { useCart } from "./CartProvider"; // Hook pour le panier
 import {
   Grid,
   Card,
@@ -12,9 +12,40 @@ import {
   IconButton,
 } from "@mui/material";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart"; // Icône du panier
+import axios from "axios"; // Pour récupérer l'image via Axios
 
 export function Carts() {
-  const { cart, removeFromCart } = useCart(); // Accédez au panier
+  const { cart, removeFromCart } = useCart(); // Accès au panier
+  const [imageUrls, setImageUrls] = useState({}); // Pour stocker les URLs des images
+
+  // Fonction pour récupérer l'image pour chaque produit
+  const fetchImage = async (productId) => {
+    try {
+      const response = await axios.get(
+        `http://localhost:8080/api/products/${productId}/image`, // L'endpoint pour récupérer l'image
+        {
+          responseType: "blob", // Nous attendons un Blob
+        }
+      );
+      // Créer une URL temporaire pour l'image
+      const imageUrl = URL.createObjectURL(response.data);
+      setImageUrls((prevUrls) => ({
+        ...prevUrls,
+        [productId]: imageUrl, // Associer l'URL à l'ID du produit
+      }));
+    } catch (error) {
+      console.error("Erreur lors du chargement de l'image:", error);
+    }
+  };
+
+  // Récupérer les images pour tous les produits du panier lorsque le panier change
+  useEffect(() => {
+    cart.forEach((product) => {
+      if (!imageUrls[product.id]) {
+        fetchImage(product.id); // Appel à fetchImage pour chaque produit
+      }
+    });
+  }, [cart, imageUrls]); // Recharger les images chaque fois que le panier change
 
   return (
     <div>
@@ -28,20 +59,20 @@ export function Carts() {
       </Box>
 
       {cart.length === 0 ? (
-        // Affiche l'image PNG au centre quand le panier est vide
+        // Affiche une image et un message lorsque le panier est vide
         <Box
           sx={{
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
             flexDirection: "column",
-            minHeight: "60vh", // Hauteur minimale
+            minHeight: "60vh",
           }}
         >
           <img
-            src="/images/shoping.jpg" // Remplacez par le chemin de votre image PNG
+            src="/images/shoping.jpg" // Assurez-vous que l'image est disponible à ce chemin
             alt="empty cart"
-            style={{ maxWidth: "400px" }} // Ajuste la taille de l'image si nécessaire
+            style={{ maxWidth: "400px" }}
           />
           <Typography variant="h6" sx={{ mt: 2, color: "text.secondary" }}>
             Your cart is empty
@@ -56,31 +87,30 @@ export function Carts() {
                   <CardMedia
                     component="img"
                     height="140"
-                    image={product.image}
-                    alt={product.title}
+                    image={imageUrls[product.id] || "path_to_default_image.jpg"} // Image ou fallback
+                    alt={product.name}
                   />
                   <CardContent>
                     <Typography gutterBottom variant="h5" component="div">
-                      {product.title}
+                      {product.name}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      {product.description}
+                      Expiration: {product.expirationDate}
                     </Typography>
-                    <Typography
-                      variant="h6"
-                      color="text.primary"
-                      sx={{ mt: 2 }}
-                    >
+                    <Typography variant="h6" color="text.primary" sx={{ mt: 2 }}>
                       ${product.price}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Quantity: {product.quantity}
                     </Typography>
                   </CardContent>
                 </CardActionArea>
                 <Button
                   size="small"
                   color="error"
-                  onClick={() => removeFromCart(product.id)} // Retirer le produit du panier
+                  onClick={() => removeFromCart(product.id)} // Suppression du produit
                 >
-                  Remove from Cart
+                  {product.quantity > 1 ? "Remove 1" : "Remove from Cart"}
                 </Button>
               </Card>
             </Grid>

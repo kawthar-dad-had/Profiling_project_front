@@ -1,4 +1,6 @@
-import * as React from "react";
+import React, { useState } from "react";
+import axios from "axios";
+import { useNavigate } from "react-router-dom"; // Import useNavigate
 import {
   Button,
   FormControl,
@@ -14,7 +16,6 @@ import {
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 
-// Composant pour le champ d'email
 function CustomEmailField() {
   return (
     <TextField
@@ -30,7 +31,6 @@ function CustomEmailField() {
   );
 }
 
-// Composant pour le champ de mot de passe
 function CustomPasswordField() {
   const [showPassword, setShowPassword] = React.useState(false);
 
@@ -73,12 +73,11 @@ function CustomPasswordField() {
   );
 }
 
-// Composant pour le champ de prénom
-function CustomFirstNameField() {
+function CustomNameField() {
   return (
     <TextField
-      label="First Name"
-      name="firstName"
+      label="Full Name"
+      name="name"
       type="text"
       size="small"
       required
@@ -89,23 +88,6 @@ function CustomFirstNameField() {
   );
 }
 
-// Composant pour le champ de nom
-function CustomLastNameField() {
-  return (
-    <TextField
-      label="Last Name"
-      name="lastName"
-      type="text"
-      size="small"
-      required
-      fullWidth
-      variant="outlined"
-      sx={{ my: 2 }}
-    />
-  );
-}
-
-// Composant pour le champ d'âge
 function CustomAgeField() {
   return (
     <TextField
@@ -121,7 +103,6 @@ function CustomAgeField() {
   );
 }
 
-// Composant pour le bouton d'inscription
 function CustomButton() {
   return (
     <Button
@@ -139,16 +120,32 @@ function CustomButton() {
 }
 
 export default function RegisterPage() {
-  const handleRegister = (event) => {
+  const navigate = useNavigate(); // Initialize navigation
+  const [error, setError] = useState(null);
+
+  const handleRegister = async (event) => {
     event.preventDefault();
     const formData = new FormData(event.target);
-    alert(
-      `Registering with credentials:\nFirst Name: ${formData.get(
-        "firstName"
-      )}, Last Name: ${formData.get("lastName")}, Age: ${formData.get(
-        "age"
-      )}, Email: ${formData.get("email")}, Password: ${formData.get("password")}`
-    );
+    const user = {
+      name: formData.get("name"),
+      age: formData.get("age"),
+      email: formData.get("email"),
+      password: formData.get("password"),
+    };
+
+    try {
+      const response = await axios.post(
+        "http://localhost:8080/api/auth/register",
+        user
+      );
+      
+      // After successful registration, navigate to login page
+      alert("User registered successfully!");
+      navigate("/"); // Redirect to login page
+    } catch (err) {
+      setError(err.response ? err.response.data : "Unknown error");
+      console.error("Registration error", err);
+    }
   };
 
   return (
@@ -165,14 +162,13 @@ export default function RegisterPage() {
         <CardContent>
           <h2 style={{ textAlign: "center" }}>Register</h2>
           <form onSubmit={handleRegister}>
-            <CustomFirstNameField />
-            <CustomLastNameField />
+            <CustomNameField />
             <CustomAgeField />
             <CustomEmailField />
             <CustomPasswordField />
             <CustomButton />
           </form>
-          {/* Lien vers la page de connexion */}
+          {error && <p style={{ color: "red", textAlign: "center" }}>{error}</p>}
           <Link
             href="/"
             variant="body2"
