@@ -18,115 +18,156 @@ import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import TextField from "@mui/material/TextField";
+import { trace } from "@opentelemetry/api";
 
-// Fonction pour récupérer les produits depuis le backend
+const tracer = trace.getTracer("frontend-service"); // Initialize tracer
+
+// Fetch products from the backend
 const fetchProducts = async () => {
+  const span = tracer.startSpan("fetchProducts"); // Trace name
   try {
     const token = localStorage.getItem("jwtToken");
     if (!token) {
       alert("Please log in first");
-      return;
+      span.setStatus({ code: 2, message: "No token found" }); // Error status
+      return [];
     }
-    const response = await axios.get('http://localhost:8080/api/products', {
+
+    span.setAttribute("user.action", "fetch_products"); // Custom attribute
+    span.setAttribute("auth.token", token ? "present" : "absent"); // Token presence
+
+    const response = await axios.get("http://localhost:8080/api/products", {
       headers: {
-          Authorization: `Bearer ${token}`, // Ajoutez le token JWT ici
-          'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
       },
-      withCredentials: true, // Nécessaire si "allowCredentials" est activé
-  });
+    });
+
+    span.setAttribute("http.status_code", response.status); // HTTP status code
+    span.setAttribute("http.url", "http://localhost:8080/api/products"); // URL called
     return response.data;
   } catch (error) {
+    span.setStatus({ code: 2, message: error.message });
     console.error("Error fetching products:", error);
     return [];
+  } finally {
+    span.end(); // End the trace
   }
 };
 
-// Fonction pour ajouter un produit
+// Add a new product
 const createProduct = async (product, imageFile) => {
-  const token = localStorage.getItem("jwtToken");
-  if (!token) {
-    alert("Please log in first");
-    return;
-  }
-
-  const formData = new FormData();
-  formData.append("name", product.name);
-  formData.append("price", product.price);
-  formData.append("expirationDate", product.expirationDate);
-  if (imageFile) {
-    formData.append("image", imageFile);
-  }
-
+  const span = tracer.startSpan("createProduct");
   try {
+    const token = localStorage.getItem("jwtToken");
+    if (!token) {
+      alert("Please log in first");
+      span.setStatus({ code: 2, message: "No token found" });
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("name", product.name);
+    formData.append("price", product.price);
+    formData.append("expirationDate", product.expirationDate);
+    if (imageFile) {
+      formData.append("image", imageFile);
+    }
+
+    span.setAttribute("user.action", "create_product");
+    span.setAttribute("product.name", product.name);
+
     await axios.post("http://localhost:8080/api/products", formData, {
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "multipart/form-data",
       },
     });
+
+    span.setStatus({ code: 1, message: "Product created successfully" }); // Success
     alert("Product created successfully!");
   } catch (error) {
-    console.error("Error creating product:", error.response ? error.response.data : error.message);
+    span.setStatus({ code: 2, message: error.message });
+    console.error("Error creating product:", error);
+  } finally {
+    span.end();
   }
 };
 
-// Fonction pour supprimer un produit
+// Delete a product
 const deleteProduct = async (id) => {
-  const token = localStorage.getItem("jwtToken");
-  if (!token) {
-    alert("Please log in first");
-    return;
-  }
-
+  const span = tracer.startSpan("deleteProduct");
   try {
+    const token = localStorage.getItem("jwtToken");
+    if (!token) {
+      alert("Please log in first");
+      span.setStatus({ code: 2, message: "No token found" });
+      return;
+    }
+
+    span.setAttribute("user.action", "delete_product");
+    span.setAttribute("product.id", id);
+
     await axios.delete(`http://localhost:8080/api/products/${id}`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
     });
+
+    span.setStatus({ code: 1, message: "Product deleted successfully" });
     alert("Product deleted successfully!");
   } catch (error) {
-    console.error("Error deleting product:", error.response ? error.response.data : error.message);
+    span.setStatus({ code: 2, message: error.message });
+    console.error("Error deleting product:", error);
+  } finally {
+    span.end();
   }
 };
 
-// Fonction pour mettre à jour un produit
+// Update a product
 const updateProduct = async (id, product, imageFile) => {
-  const token = localStorage.getItem("jwtToken");
-  if (!token) {
-    alert("Please log in first");
-    return;
-  }
-
-  const formData = new FormData();
-  formData.append("name", product.name);
-  formData.append("price", product.price);
-  formData.append("expirationDate", product.expirationDate);
-  if (imageFile) {
-    formData.append("image", imageFile);
-  }
-
+  const span = tracer.startSpan("updateProduct");
   try {
+    const token = localStorage.getItem("jwtToken");
+    if (!token) {
+      alert("Please log in first");
+      span.setStatus({ code: 2, message: "No token found" });
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("name", product.name);
+    formData.append("price", product.price);
+    formData.append("expirationDate", product.expirationDate);
+    if (imageFile) {
+      formData.append("image", imageFile);
+    }
+
+    span.setAttribute("user.action", "update_product");
+    span.setAttribute("product.id", id);
+
     await axios.put(`http://localhost:8080/api/products/${id}`, formData, {
       headers: {
-        Authorization: `Bearer ${token}`, // Le token doit être valide
-        "Content-Type": "multipart/form-data", // Correct pour l'envoi d'un FormData
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "multipart/form-data",
       },
     });
-    
-    
+
+    span.setStatus({ code: 1, message: "Product updated successfully" });
     alert("Product updated successfully!");
   } catch (error) {
-    console.error("Error updating product:", error.response ? error.response.data : error.message);
+    span.setStatus({ code: 2, message: error.message });
+    console.error("Error updating product:", error);
+  } finally {
+    span.end();
   }
 };
 
-// Fonction de la barre d'outils pour ajouter un produit
+// Toolbar for adding products
 function EditToolbar(props) {
   const { openAddDialog, setOpenAddDialog } = props;
 
   const handleClick = () => {
-    setOpenAddDialog(true); // Open the add product dialog
+    setOpenAddDialog(true);
   };
 
   return (
@@ -138,46 +179,43 @@ function EditToolbar(props) {
   );
 }
 
+// Main ProductPage component
 export function ProductPage() {
-  const [products, setRows] = React.useState([]); // Initializing as empty array
-  const [openAddDialog, setOpenAddDialog] = React.useState(false); // Manage add product dialog state
-  const [openEditDialog, setOpenEditDialog] = React.useState(false); // Manage edit product dialog state
+  const [products, setRows] = React.useState([]);
+  const [openAddDialog, setOpenAddDialog] = React.useState(false);
+  const [openEditDialog, setOpenEditDialog] = React.useState(false);
   const [newProduct, setNewProduct] = React.useState({
     name: "",
     price: "",
     expirationDate: "",
   });
   const [editingProduct, setEditingProduct] = React.useState(null);
-  const [imageFile, setImageFile] = React.useState(null); // State to store selected image file for new product
+  const [imageFile, setImageFile] = React.useState(null);
 
-  // Fetch products when the component mounts
   React.useEffect(() => {
     const loadProducts = async () => {
       const productsFromBackend = await fetchProducts();
-      setRows(productsFromBackend); // Set the products state with fetched data
+      setRows(productsFromBackend);
     };
 
     loadProducts();
-  }, []); // Empty dependency array means this runs once after the initial render
+  }, []);
 
-  // Add Product
   const handleAddProduct = async () => {
-    await createProduct(newProduct, imageFile); // Pass imageFile to createProduct function
+    await createProduct(newProduct, imageFile);
     const updatedProducts = await fetchProducts();
     setRows(updatedProducts);
     setOpenAddDialog(false);
     setNewProduct({ name: "", price: "", expirationDate: "" });
-    setImageFile(null); // Reset imageFile after adding product
+    setImageFile(null);
   };
 
-  // Edit Product Logic
   const handleEditClick = (id) => async () => {
     const productToEdit = products.find((product) => product.id === id);
     setEditingProduct(productToEdit);
-    setOpenEditDialog(true); // Open dialog to edit product
+    setOpenEditDialog(true);
   };
 
-  // Update Product Logic
   const handleUpdateProduct = async () => {
     if (!editingProduct) return;
     await updateProduct(editingProduct.id, editingProduct, imageFile);
@@ -186,32 +224,22 @@ export function ProductPage() {
     setOpenEditDialog(false);
   };
 
-  // Handle Product Deletion
   const handleDeleteClick = (id) => async () => {
     await deleteProduct(id);
     const updatedProducts = await fetchProducts();
     setRows(updatedProducts);
   };
 
-  // Handle form field changes for add product
   const handleNewProductChange = (event) => {
     const { name, value } = event.target;
-    setNewProduct({
-      ...newProduct,
-      [name]: value,
-    });
+    setNewProduct({ ...newProduct, [name]: value });
   };
 
-  // Handle form field changes for edit product
   const handleEditProductChange = (event) => {
     const { name, value } = event.target;
-    setEditingProduct((prevProduct) => ({
-      ...prevProduct,
-      [name]: value,
-    }));
+    setEditingProduct((prevProduct) => ({ ...prevProduct, [name]: value }));
   };
 
-  // Handle image file selection for new product
   const handleImageChange = (event) => {
     const file = event.target.files[0];
     if (file) {
@@ -219,44 +247,27 @@ export function ProductPage() {
     }
   };
 
-  // Columns configuration for DataGrid
   const columns = [
-    { field: "name", headerName: "Nom du produit", width: 200, editable: true },
-    {
-      field: "price",
-      headerName: "Prix",
-      type: "number",
-      width: 100,
-      editable: true,
-    },
-    {
-      field: "expirationDate",
-      headerName: "Expiration Date",
-      width: 100,
-      editable: true,
-    },
+    { field: "name", headerName: "Nom du produit", width: 200 },
+    { field: "price", headerName: "Prix", type: "number", width: 100 },
+    { field: "expirationDate", headerName: "Expiration Date", width: 100 },
     {
       field: "actions",
       type: "actions",
       headerName: "Actions",
       width: 150,
-      getActions: ({ id }) => {
-        return [
-          <GridActionsCellItem
-            icon={<EditIcon />}
-            label="Edit"
-            className="textPrimary"
-            onClick={handleEditClick(id)} // Trigger editing mode
-            color="inherit"
-          />,
-          <GridActionsCellItem
-            icon={<DeleteIcon />}
-            label="Delete"
-            onClick={handleDeleteClick(id)} // Trigger delete
-            color="inherit"
-          />,
-        ];
-      },
+      getActions: ({ id }) => [
+        <GridActionsCellItem
+          icon={<EditIcon />}
+          label="Edit"
+          onClick={handleEditClick(id)}
+        />,
+        <GridActionsCellItem
+          icon={<DeleteIcon />}
+          label="Delete"
+          onClick={handleDeleteClick(id)}
+        />,
+      ],
     },
   ];
 
@@ -267,31 +278,16 @@ export function ProductPage() {
         <h2>Product Management</h2>
       </Box>
 
-      <Box
-        sx={{
-          height: 500,
-          width: "100%",
-          "& .actions": {
-            color: "text.secondary",
-          },
-          "& .textPrimary": {
-            color: "text.primary",
-          },
-        }}
-      >
+      <Box sx={{ height: 500, width: "100%" }}>
         <DataGrid
           rows={products}
           columns={columns}
-          slots={{
-            toolbar: EditToolbar,
-          }}
-          slotProps={{
-            toolbar: { openAddDialog, setOpenAddDialog },
-          }}
+          slots={{ toolbar: EditToolbar }}
+          slotProps={{ toolbar: { openAddDialog, setOpenAddDialog } }}
         />
       </Box>
 
-      {/* Dialog for adding a product */}
+      {/* Add Product Dialog */}
       <Dialog open={openAddDialog} onClose={() => setOpenAddDialog(false)}>
         <DialogTitle>Add New Product</DialogTitle>
         <DialogContent>
@@ -321,7 +317,6 @@ export function ProductPage() {
             fullWidth
             margin="normal"
           />
-          {/* New field to upload image */}
           <input
             type="file"
             accept="image/*"
@@ -339,7 +334,7 @@ export function ProductPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Dialog for editing a product */}
+      {/* Edit Product Dialog */}
       <Dialog open={openEditDialog} onClose={() => setOpenEditDialog(false)}>
         <DialogTitle>Edit Product</DialogTitle>
         <DialogContent>
@@ -369,7 +364,6 @@ export function ProductPage() {
             fullWidth
             margin="normal"
           />
-          {/* Option to upload new image for editing */}
           <input
             type="file"
             accept="image/*"

@@ -16,7 +16,10 @@ import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import { AppProvider } from "@toolpad/core/AppProvider";
 import { SignInPage } from "@toolpad/core/SignInPage";
 import { useTheme } from "@mui/material/styles";
-import { useNavigate } from "react-router-dom"; // Importez useNavigate
+import { useNavigate } from "react-router-dom";
+import { trace } from '@opentelemetry/api'; // Import OpenTelemetry API
+
+const tracer = trace.getTracer('frontend-service'); // Initialiser le traceur
 
 const providers = [{ id: "credentials", name: "Email and Password" }];
 
@@ -112,36 +115,43 @@ function SignUpLink() {
 
 export default function LoginPage() {
   const theme = useTheme();
-  const navigate = useNavigate(); // Créez une instance de navigate
+  const navigate = useNavigate();
 
-  const handleSignIn = (provider, formData) => {
+  const handleSignIn = async (provider, formData) => {
+    const span = tracer.startSpan('user_sign_in'); // Démarrer une trace
     const email = formData.get("email");
     const password = formData.get("password");
 
-    // Utilisation d'Axios pour appeler l'API backend
-    axios
-      .post("http://localhost:8080/api/auth/login", { email, password }) // Remplacez par l'URL correcte de votre API
-      .then((response) => {
-        const token = response.data.token;
-        if (token) {
-          console.log(token)
-          // Sauvegarder le token dans le localStorage ou un autre stockage sécurisé
-          localStorage.setItem("jwtToken", token);
+    span.setAttribute('user.email', email); // Ajouter l'email comme attribut
+    span.setAttribute('user.action', 'sign_in');
 
-          // Vérification de l'email pour rediriger vers le bon tableau de bord
-          if (email === "ayoub@gmail.com") {
-            alert(`Bienvenue, administrateur !`);
-            navigate("/dashboard"); // Redirection vers la route administrateur
-          } else {
-            alert(`Bienvenue, utilisateur !`);
-            navigate("/user"); // Redirection vers la route utilisateur
-          }
+    try {
+      const response = await axios.post("http://localhost:8080/api/auth/login", { email, password });
+      const token = response.data.token;
+
+      if (token) {
+        span.setStatus({ code: 1, message: 'Login successful' }); // Statut de succès
+        console.log(token);
+
+        localStorage.setItem("jwtToken", token);
+
+        if (email === "ayoub@gmail.com") {
+          alert(`Bienvenue, administrateur !`);
+          span.setAttribute('user.role', 'admin');
+          navigate("/dashboard");
+        } else {
+          alert(`Bienvenue, utilisateur !`);
+          span.setAttribute('user.role', 'user');
+          navigate("/user");
         }
-      })
-      .catch((error) => {
-        console.error("Erreur de connexion : ", error);
-        alert("Identifiants incorrects.");
-      });
+      }
+    } catch (error) {
+      span.setStatus({ code: 2, message: error.message }); // Statut d'erreur
+      console.error("Erreur de connexion : ", error);
+      alert("Identifiants incorrects.");
+    } finally {
+      span.end(); // Terminer la trace
+    }
   };
 
   return (

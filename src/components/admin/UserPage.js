@@ -18,17 +18,22 @@ import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import TextField from "@mui/material/TextField";
+import { trace } from '@opentelemetry/api';
 
-// Rest of the code remains the same as in the previous artifact
+const tracer = trace.getTracer('frontend-service'); // Initialiser le traceur
 
 // Fetch Users from Backend
 const fetchUsers = async () => {
+  const span = tracer.startSpan('fetchUsers'); // Commencer une trace
   try {
     const token = localStorage.getItem("jwtToken");
     if (!token) {
       alert("Please log in first");
+      span.setStatus({ code: 2, message: 'No token found' }); // Code 2 = erreur
       return [];
     }
+
+    span.setAttribute('user.action', 'fetch_users'); // Attribut personnalisé
     const response = await axios.get('http://localhost:8080/api/users', {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -36,76 +41,111 @@ const fetchUsers = async () => {
       },
       withCredentials: true,
     });
+
+    span.setAttribute('http.status_code', response.status); // Statut HTTP
     return response.data;
   } catch (error) {
+    span.setStatus({ code: 2, message: error.message });
     console.error("Error fetching users:", error);
     return [];
+  } finally {
+    span.end(); // Terminer la trace
   }
 };
 
 // Create User
 const createUser = async (user) => {
-  const token = localStorage.getItem("jwtToken");
-  if (!token) {
-    alert("Please log in first");
-    return null;
-  }
-
+  const span = tracer.startSpan('createUser');
   try {
+    const token = localStorage.getItem("jwtToken");
+    if (!token) {
+      alert("Please log in first");
+      span.setStatus({ code: 2, message: 'No token found' });
+      return null;
+    }
+
+    span.setAttribute('user.action', 'create_user');
+    span.setAttribute('user.email', user.email);
+
     const response = await axios.post("http://localhost:8080/api/users", user, {
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
     });
+
+    span.setStatus({ code: 1, message: 'User created successfully' });
     alert("User created successfully!");
     return response.data;
   } catch (error) {
-    console.error("Error creating user:", error.response ? error.response.data : error.message);
+    span.setStatus({ code: 2, message: error.message });
+    console.error("Error creating user:", error);
     return null;
+  } finally {
+    span.end();
   }
 };
 
 // Update User
 const updateUser = async (id, user) => {
-  const token = localStorage.getItem("jwtToken");
-  if (!token) {
-    alert("Please log in first");
-    return null;
-  }
-
+  const span = tracer.startSpan('updateUser');
   try {
+    const token = localStorage.getItem("jwtToken");
+    if (!token) {
+      alert("Please log in first");
+      span.setStatus({ code: 2, message: 'No token found' });
+      return null;
+    }
+
+    span.setAttribute('user.action', 'update_user');
+    span.setAttribute('user.id', id);
+
     const response = await axios.put(`http://localhost:8080/api/users/${id}`, user, {
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
     });
+
+    span.setStatus({ code: 1, message: 'User updated successfully' });
     alert("User updated successfully!");
     return response.data;
   } catch (error) {
-    console.error("Error updating user:", error.response ? error.response.data : error.message);
+    span.setStatus({ code: 2, message: error.message });
+    console.error("Error updating user:", error);
     return null;
+  } finally {
+    span.end();
   }
 };
 
 // Delete User
 const deleteUser = async (id) => {
-  const token = localStorage.getItem("jwtToken");
-  if (!token) {
-    alert("Please log in first");
-    return;
-  }
-
+  const span = tracer.startSpan('deleteUser');
   try {
+    const token = localStorage.getItem("jwtToken");
+    if (!token) {
+      alert("Please log in first");
+      span.setStatus({ code: 2, message: 'No token found' });
+      return;
+    }
+
+    span.setAttribute('user.action', 'delete_user');
+    span.setAttribute('user.id', id);
+
     await axios.delete(`http://localhost:8080/api/users/${id}`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
     });
+
+    span.setStatus({ code: 1, message: 'User deleted successfully' });
     alert("User deleted successfully!");
   } catch (error) {
-    console.error("Error deleting user:", error.response ? error.response.data : error.message);
+    span.setStatus({ code: 2, message: error.message });
+    console.error("Error deleting user:", error);
+  } finally {
+    span.end();
   }
 };
 
@@ -126,6 +166,7 @@ function EditToolbar(props) {
   );
 }
 
+// User Management Page
 export function UserPage() {
   const [users, setUsers] = React.useState([]);
   const [openAddDialog, setOpenAddDialog] = React.useState(false);
@@ -177,69 +218,44 @@ export function UserPage() {
     }
   };
 
-  // Handle Product Deletion
+  // Handle User Deletion
   const handleDeleteClick = (id) => async () => {
     await deleteUser(id);
     const updatedUsers = await fetchUsers();
     setUsers(updatedUsers);
   };
 
-  // Handle form field changes for add user
   const handleNewUserChange = (event) => {
     const { name, value } = event.target;
-    setNewUser({
-      ...newUser,
-      [name]: value,
-    });
+    setNewUser({ ...newUser, [name]: value });
   };
 
-  // Handle form field changes for edit user
   const handleEditUserChange = (event) => {
     const { name, value } = event.target;
-    setEditingUser((prevUser) => ({
-      ...prevUser,
-      [name]: value,
-    }));
+    setEditingUser((prevUser) => ({ ...prevUser, [name]: value }));
   };
 
-  // Columns configuration for DataGrid
   const columns = [
     { field: "name", headerName: "Name", width: 200, editable: true },
-    {
-      field: "age",
-      headerName: "Age",
-      type: "number",
-      width: 100,
-      editable: true,
-    },
-    {
-      field: "email",
-      headerName: "Email",
-      width: 250,
-      editable: true,
-    },
+    { field: "age", headerName: "Age", type: "number", width: 100 },
+    { field: "email", headerName: "Email", width: 250 },
     {
       field: "actions",
       type: "actions",
       headerName: "Actions",
       width: 150,
-      getActions: ({ id }) => {
-        return [
-          <GridActionsCellItem
-            icon={<EditIcon />}
-            label="Edit"
-            className="textPrimary"
-            onClick={handleEditClick(id)}
-            color="inherit"
-          />,
-          <GridActionsCellItem
-            icon={<DeleteIcon />}
-            label="Delete"
-            onClick={handleDeleteClick(id)}
-            color="inherit"
-          />,
-        ];
-      },
+      getActions: ({ id }) => [
+        <GridActionsCellItem
+          icon={<EditIcon />}
+          label="Edit"
+          onClick={handleEditClick(id)}
+        />,
+        <GridActionsCellItem
+          icon={<DeleteIcon />}
+          label="Delete"
+          onClick={handleDeleteClick(id)}
+        />,
+      ],
     },
   ];
 
@@ -250,31 +266,16 @@ export function UserPage() {
         <h2>User Management</h2>
       </Box>
 
-      <Box
-        sx={{
-          height: 500,
-          width: "100%",
-          "& .actions": {
-            color: "text.secondary",
-          },
-          "& .textPrimary": {
-            color: "text.primary",
-          },
-        }}
-      >
+      <Box sx={{ height: 500, width: "100%" }}>
         <DataGrid
           rows={users}
           columns={columns}
-          slots={{
-            toolbar: EditToolbar,
-          }}
-          slotProps={{
-            toolbar: { openAddDialog, setOpenAddDialog },
-          }}
+          slots={{ toolbar: EditToolbar }}
+          slotProps={{ toolbar: { openAddDialog, setOpenAddDialog } }}
         />
       </Box>
 
-      {/* Dialog for adding a user */}
+      {/* Add User Dialog */}
       <Dialog open={openAddDialog} onClose={() => setOpenAddDialog(false)}>
         <DialogTitle>Add New User</DialogTitle>
         <DialogContent>
@@ -324,7 +325,7 @@ export function UserPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Dialog for editing a user */}
+      {/* Edit User Dialog */}
       <Dialog open={openEditDialog} onClose={() => setOpenEditDialog(false)}>
         <DialogTitle>Edit User</DialogTitle>
         <DialogContent>

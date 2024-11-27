@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom"; // Import useNavigate
+import { useNavigate } from "react-router-dom";
 import {
   Button,
   FormControl,
@@ -15,6 +15,9 @@ import {
 } from "@mui/material";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
+import { trace } from "@opentelemetry/api"; // Import OpenTelemetry API
+
+const tracer = trace.getTracer("frontend-service"); // Initialiser le traceur
 
 function CustomEmailField() {
   return (
@@ -120,11 +123,13 @@ function CustomButton() {
 }
 
 export default function RegisterPage() {
-  const navigate = useNavigate(); // Initialize navigation
+  const navigate = useNavigate();
   const [error, setError] = useState(null);
 
   const handleRegister = async (event) => {
+    const span = tracer.startSpan("user_register"); // Démarrer une trace
     event.preventDefault();
+
     const formData = new FormData(event.target);
     const user = {
       name: formData.get("name"),
@@ -133,18 +138,26 @@ export default function RegisterPage() {
       password: formData.get("password"),
     };
 
+    span.setAttribute("user.email", user.email); // Ajouter des attributs personnalisés
+    span.setAttribute("user.action", "register");
+    span.setAttribute("user.age", user.age);
+
     try {
       const response = await axios.post(
         "http://localhost:8080/api/auth/register",
         user
       );
-      
-      // After successful registration, navigate to login page
+
+      span.setStatus({ code: 1, message: "Registration successful" }); // Statut de succès
+
       alert("User registered successfully!");
-      navigate("/"); // Redirect to login page
+      navigate("/"); // Rediriger vers la page de connexion
     } catch (err) {
+      span.setStatus({ code: 2, message: err.message }); // Statut d'erreur
       setError(err.response ? err.response.data : "Unknown error");
       console.error("Registration error", err);
+    } finally {
+      span.end(); // Terminer la trace
     }
   };
 
