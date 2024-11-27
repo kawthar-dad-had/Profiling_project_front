@@ -13,6 +13,10 @@ import {
 } from "@mui/material";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart"; // Icône du panier
 import axios from "axios"; // Pour récupérer l'image via Axios
+import { trace } from "@opentelemetry/api"; // Import OpenTelemetry API
+
+
+const tracer = trace.getTracer("frontend-service"); // Initialiser le traceur
 
 export function Carts() {
   const { cart, removeFromCart } = useCart(); // Accès au panier
@@ -20,13 +24,29 @@ export function Carts() {
 
   // Fonction pour récupérer l'image pour chaque produit
   const fetchImage = async (productId) => {
+    const span = tracer.startSpan("fetch_image");
+
     try {
+
+      const token = localStorage.getItem("jwtToken");
+      if (!token) {
+        alert("Please log in first");
+        span.setStatus({ code: 2, message: "No token found" }); // Error status
+        return [];
+      }
       const response = await axios.get(
         `http://localhost:8080/api/products/${productId}/image`, // L'endpoint pour récupérer l'image
         {
           responseType: "blob", // Nous attendons un Blob
+          headers: {
+            Authorization: `Bearer ${token}`, // Ajouter le token dans les en-têtes
+          },
         }
       );
+
+      span.setAttribute("product.id", productId); // Ajouter l'ID du produit
+      span.setAttribute("http.status_code", response.status);
+
       // Créer une URL temporaire pour l'image
       const imageUrl = URL.createObjectURL(response.data);
       setImageUrls((prevUrls) => ({
@@ -34,7 +54,10 @@ export function Carts() {
         [productId]: imageUrl, // Associer l'URL à l'ID du produit
       }));
     } catch (error) {
+      span.setStatus({ code: 2, message: error.message }); // Erreur lors du chargement de l'image
       console.error("Erreur lors du chargement de l'image:", error);
+    } finally {
+      span.end(); // Terminer la trace
     }
   };
 

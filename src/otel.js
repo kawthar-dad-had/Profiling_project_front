@@ -14,7 +14,7 @@ const provider = new WebTracerProvider({
 
 // Configure l'exportation vers Zipkin
 const zipkinExporter = new ZipkinExporter({
-  url: 'http://localhost:9411/api/v2/spans', // URL de Zipkin
+  url: 'http://localhost:9414/api/v2/spans', // URL de Zipkin
 });
 
 // Ajout des processeurs pour exporter les traces
