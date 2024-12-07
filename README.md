@@ -70,7 +70,12 @@ npm run start
 
 ## 📊 Visualisation des Traces
 
-- Lancez Zipkin à l'adresse http://localhost:9414.
+- Lancez Zipkin à l'adresse http://localhost:9414 avec docker en executant cette commande :
+
+  ```bash
+   docker run -d -p 9414:9411 openzipkin/zipkin
+  ```
+  
 - Effectuez des actions sur le frontend (connexion, gestion des produits, etc.).
 - Visualisez les traces dans l'interface Zipkin pour voir le parcours complet des requêtes.
 
