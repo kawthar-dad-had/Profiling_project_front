@@ -139,7 +139,6 @@ export default function RegisterPage() {
     };
 
     span.setAttribute("user.email", user.email); // Ajouter des attributs personnalisés
-    span.setAttribute("user.action", "register");
     span.setAttribute("user.age", user.age);
 
     try {

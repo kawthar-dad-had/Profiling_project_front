@@ -85,7 +85,7 @@ function DashboardUser(props) {
       theme={demoTheme}
       window={demoWindow}
       branding={{
-        title: "kawthar",
+        title: "Profiling",
       }}
     >
       <DashboardLayout>

@@ -145,7 +145,7 @@ export function Product() {
               <CardActionArea>
                 <CardMedia
                   component="img"
-                  height="140"
+                  height="250"
                   image={imageUrls[product.id] || "path_to_default_image.jpg"} // Image ou fallback
                   alt={product.name}
                 />
