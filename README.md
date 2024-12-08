@@ -1,70 +1,83 @@
-# Getting Started with Create React App
+# 🛒 Frontend du Projet de Profilage des Utilisateurs
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Ce projet est le frontend d'une application de gestion des produits et des utilisateurs, développée avec **React** et instrumentée avec **OpenTelemetry** pour la traçabilité des actions. Il communique avec un backend en Java via des requêtes HTTP, en utilisant **Axios** pour effectuer les opérations CRUD.
 
-## Available Scripts
+---
 
-In the project directory, you can run:
+## 📋 **Fonctionnalités Principales**
 
-### `npm start`
+- **Authentification des utilisateurs** :  
+  - Inscription et connexion des utilisateurs.
+  - Gestion des tokens JWT pour sécuriser les requêtes.
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- **Gestion des Produits** :  
+  - Visualisation des produits disponibles.
+  - Ajout, modification et suppression des produits (réservé aux administrateurs).
+  
+- **Gestion du Panier** :  
+  - Ajout et suppression de produits du panier.
+  - Visualisation du panier utilisateur.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+- **Traçabilité avec OpenTelemetry** :  
+  - Capture des requêtes HTTP et des interactions utilisateur.
+  - Exportation des traces vers **Zipkin** pour une analyse détaillée des transactions frontend-backend.
 
-### `npm test`
+---
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## 🚀 **Technologies Utilisées**
 
-### `npm run build`
+- **React** : Framework JavaScript pour le développement du frontend.
+- **Axios** : Pour les requêtes HTTP vers le backend.
+- **Material-UI** : Composants d'interface utilisateur pour un design moderne.
+- **OpenTelemetry** : Pour l'instrumentation et la traçabilité des actions.
+- **Zipkin** : Outil de visualisation des traces collectées.
+- **React Router** : Pour la gestion de la navigation entre les pages.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+---
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## 🛠️ **Prérequis**
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+Avant de lancer le projet, assurez-vous d'avoir installé les éléments suivants :
 
-### `npm run eject`
+- [Node.js](https://nodejs.org/) (version 14 ou supérieure)
+- [npm](https://www.npmjs.com/) ou [yarn](https://yarnpkg.com/)
+- Le backend Java en cours d'exécution sur `http://localhost:8080`
+- Zipkin en cours d'exécution sur `http://localhost:9414`
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+---
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## 📥 **Installation**
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+Clonez le dépôt GitHub :
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+```bash
+git clone https://github.com/kawthar-dad-had/Profiling_project_front
+cd Profiling_project_front
+```
+Installez les dépendances :
 
-## Learn More
+```bash
+npm install
+```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## ▶️ Lancer le Projet
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+Démarrez le serveur de développement avec :
 
-### Code Splitting
+```bash
+npm run start
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+## 📊 Visualisation des Traces
 
-### Analyzing the Bundle Size
+- Lancez Zipkin à l'adresse http://localhost:9414 avec docker en executant cette commande :
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+  ```bash
+   docker run -d -p 9414:9411 openzipkin/zipkin
+  ```
+  
+- Effectuez des actions sur le frontend (connexion, gestion des produits, etc.).
+- Visualisez les traces dans l'interface Zipkin pour voir le parcours complet des requêtes.
 
-### Making a Progressive Web App
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
 
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
